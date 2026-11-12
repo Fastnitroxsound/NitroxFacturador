@@ -1,0 +1,35 @@
+PUNTO DE PARTIDA - APP FACTURAS NITROX
+Creado por Ismael S - Mercedes, Buenos Aires, Argentina
+
+PROYECTO:
+App de Facturas y Presupuestos NITROX TECHNOLOGY.
+Un solo archivo index.html + logo1.jpeg en la misma carpeta.
+
+ARCHIVOS EN LA CARPETA:
+- index.html (el código completo)
+- logo1.jpeg (logo de la app)
+
+FUNCIONES QUE YA TIENE:
+- Tipo: Factura o Presupuesto
+- Cliente, Trabajo, Precio
+- Impuesto % (ej: 0 = sin impuesto, 6 = 6%, 21 = IVA)
+- Abono / Seña $ (si paga una parte)
+- Calcula automático: Subtotal, Impuesto, Total, Abono, Falta pagar
+- Historial guardado en el celular (localStorage)
+- Botones: Guardar e Imprimir, Cancelar / Siguiente cliente
+- En historial: Compartir PDF por WhatsApp, Descargar PDF, Registrar Abono, Re-imprimir, Borrar documento, Borrar todo
+- Reeditar con clave de seguridad: 1234
+- Al reeditar mantiene el mismo número de factura
+- Muestra estado: PAGADO / ABONÓ / PENDIENTE
+- Mi teléfono sale en la factura y se guarda solo
+
+CLAVE DE SEGURIDAD PARA REEDITAR: 1234
+
+COMO USAR:
+1. Abrir index.html en el navegador
+2. Cargar cliente, trabajo, precio, impuesto, abono
+3. Guardar e Imprimir -> descarga PDF
+4. Para cobrar después: Registrar Abono
+
+SI TENGO QUE PEDIR AYUDA:
+Decir: "Soy Ismael S, seguí con mi app de Facturas NITROX, ya tiene impuesto, abono y reeditar con clave 1234. Pasame el código completo actualizado"

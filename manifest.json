@@ -1,0 +1,17 @@
+{
+  "name": "NITROX TECHNOLOGY",
+  "short_name": "NITROX",
+  "description": "Facturas y Presupuestos - Ismael S",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a1116",
+  "theme_color": "#0a1116",
+  "icons": [
+    {
+      "src": "logo1.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

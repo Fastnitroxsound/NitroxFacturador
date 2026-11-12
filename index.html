@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nitrox - Facturación</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#0a1116;margin:0;padding:15px;color:#e2e8f0;background-image:radial-gradient(circle at 50% 0%, #0d2b2e 0%, #0a1116 60%)}
+.card{background:#111c22;border:1px solid #1e3a3f;border-radius:20px;padding:20px;max-width:520px;margin:0 auto 15px auto;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+.logo-img{width:100%;max-width:320px;display:block;margin:0 auto;border-radius:12px}
+.sub{color:#94a3b8;margin:10px 0 0 0;font-size:14px;text-align:center}
+label{font-size:13px;color:#5eead4;font-weight:bold}
+input,select{width:100%;padding:12px;margin:5px 0 12px 0;background:#0a1116;border:1.5px solid #1e3a3f;border-radius:10px;box-sizing:border-box;font-size:16px;color:white}
+.btn{width:100%;padding:13px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-bottom:8px}
+.btn-add{background:#14b8a6;color:white}
+.btn-save{background:#22c55e;color:white}
+.btn-cancel{background:#1e293b;color:#cbd5e1}
+.btn-danger{background:#3f1d1d;color:#fca5a5}
+.btn-blue{background:#1e3a5f;color:#93c5fd}
+.btn-wsp{background:#25D366;color:white}
+.btn-small{width:auto !important;padding:6px 10px !important;font-size:12px !important;border-radius:8px !important;margin:0 0 0 6px !important;background:#334155;color:#e2e8f0;display:inline-block}
+.item{display:flex;justify-content:space-between;align-items:center;background:#0f2a2e;padding:11px;border-radius:10px;margin-bottom:6px;border:1px solid #1e4d4d;color:white}
+.item button{background:none;border:none;font-size:18px;cursor:pointer;color:#5eead4}
+.total{font-size:21px;font-weight:900;text-align:right;margin:12px 0;color:white}
+.doc{background:#111c22;border:1px solid #1e3a3f;border-radius:16px;padding:16px;max-width:520px;margin:0 auto 12px auto;color:white}
+.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;color:white}
+.badge-Factura{background:#14b8a6}
+.badge-Presupuesto{background:#f59e0b}
+</style>
+</head>
+<body>
+<div class="card">
+<img src="logo1.jpeg" class="logo-img" onerror="this.style.display='none'">
+<p class="sub">Ismael S • Facturas y Presupuestos • Trabajo con confianza</p>
+<hr style="border-color:#1e3a3f">
+<label>Mi teléfono (sale en la factura)</label>
+<input id="miTel" placeholder="Ej: 2324 123456" oninput="guardarMiTel()">
+<label>Tipo de documento</label>
+<select id="tipo"><option>Factura</option><option>Presupuesto</option></select>
+<label>Cliente</label>
+<input id="c" placeholder="Ej: Antonio">
+<label>Trabajo</label>
+<input id="t" placeholder="Ej: Pintar pared">
+<label>Precio $</label>
+<input id="p" type="number" placeholder="Ej: 100000">
+<label>Impuesto % (ej: 21 = IVA, 0 = sin impuesto)</label>
+<input id="imp" type="number" placeholder="Ej: 21" value="0" oninput="mostrarActual()">
+<label>Abono / Seña $</label>
+<input id="abono" type="number" placeholder="Ej: 50000 - Si no te abonó nada, dejalo en 0">
+<button class="btn btn-add" onclick="agregarItem()">+ Agregar a la factura</button>
+<div id="actual"></div>
+<div class="total" id="totalActual">Total actual: $0</div>
+<div id="detalleImp" style="text-align:right;color:#94a3b8;font-size:13px"></div>
+<button class="btn btn-save" id="btnGuardar" onclick="guardarDocumento()">Guardar e Imprimir</button>
+<button class="btn btn-cancel" onclick="cancelar()">Cancelar / Siguiente cliente</button>
+</div>
+<div class="card">
+<h2 style="margin:0">Historial</h2>
+<div id="lista"></div>
+<button class="btn btn-danger" onclick="borrarTodo()">Borrar todo el historial</button>
+</div>
+<script>
+const CLAVE_SEGURIDAD = '1234';
+let historial = JSON.parse(localStorage.getItem('historial') || '[]');
+let itemsActuales = [];
+let editIndex = -1;
+document.getElementById('miTel').value = localStorage.getItem('miTel') || '';
+function guardarMiTel(){ localStorage.setItem('miTel', document.getElementById('miTel').value); }
+function fmt(n){ return Number(n||0).toLocaleString('es-AR'); }
+function calcTotales(items, impPct){
+  let sub = 0; items.forEach(x=> sub += Number(x.p));
+  let impMonto = sub * (Number(impPct)||0) / 100;
+  return {sub, impMonto, tot: sub + impMonto};
+}
+function mostrarActual(){
+  let impPct = Number(document.getElementById('imp').value) || 0;
+  let c = calcTotales(itemsActuales, impPct);
+  let html = '';
+  itemsActuales.forEach((item, i) => {
+    html += '<div class="item"><span>'+item.t+' - <b>$'+fmt(item.p)+'</b></span><button onclick="borrarItem('+i+')">✕</button></div>';
+  });
+  document.getElementById('actual').innerHTML = html;
+  document.getElementById('totalActual').innerText = 'Total actual: $' + fmt(c.tot);
+  document.getElementById('detalleImp').innerHTML = 'Subtotal $'+fmt(c.sub)+' • Impuesto '+impPct+'% ($'+fmt(c.impMonto)+')';
+}
+function agregarItem(){
+  let t = document.getElementById('t').value;
+  let p = document.getElementById('p').value;
+  if(!t || !p) return alert('Pone trabajo y precio');
+  itemsActuales.push({t: t, p: p});
+  document.getElementById('t').value = '';
+  document.getElementById('p').value = '';
+  mostrarActual();
+}
+function borrarItem(i){ itemsActuales.splice(i,1); mostrarActual(); }
+function reeditar(i){
+  let clave = prompt('🔒 REEDICIÓN PROTEGIDA\n\nIngresá la clave de seguridad para reeditar esta factura:');
+  if(clave === null) return;
+  if(clave !== CLAVE_SEGURIDAD){ alert('❌ Clave incorrecta. No se puede reeditar.'); return; }
+  if(!confirm('⚠️ ALERTA\n\nVas a REEDITAR la Factura N° ' + historial[i].numero + ' de ' + historial[i].cliente + '.\n\nSi guardás, se reemplaza la anterior.\n¿Seguro que querés continuar?')) return;
+  let doc = historial[i];
+  editIndex = i;
+  document.getElementById('c').value = doc.cliente;
+  document.getElementById('tipo').value = doc.tipo;
+  document.getElementById('imp').value = doc.impPct || 0;
+  document.getElementById('abono').value = doc.abono || 0;
+  itemsActuales = JSON.parse(JSON.stringify(doc.items));
+  document.getElementById('btnGuardar').innerText = '💾 Guardar cambios de la reedición';
+  mostrarActual();
+  window.scrollTo({top:0, behavior:'smooth'});
+  alert('✅ Clave correcta. Ya podés editar arriba y guardar. El número se mantiene.');
+}
+async function getLogo(){
+  try{
+    let resp = await fetch('logo1.jpeg');
+    let blob = await resp.blob();
+    return await new Promise((res)=>{
+      let reader = new FileReader();
+      reader.onload = ()=> res(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  }catch(e){ return null; }
+}
+async function crearPDF(doc){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
+  let tel = localStorage.getItem('miTel') || '';
+  let abono = doc.abono || 0;
+  let saldo = doc.saldo != null ? doc.saldo : (doc.total - abono);
+  let impPct = doc.impPct || 0;
+  let sub = doc.subtotal != null ? doc.subtotal : doc.total;
+  let impMonto = doc.impMonto || 0;
+   pdf.setFillColor(10,17,22); pdf.rect(0,0,210,50,'F');
+  let logo = await getLogo();
+  if(logo){
+    try{ pdf.addImage(logo, 'JPEG', 65, 3, 80, 24); }catch(e){ console.log('No se pudo poner logo', e); }
+  }
+  // Ya no escribimos NITROX TECHNOLOGY en letras, porque ya está en el logo
+  pdf.setTextColor(255,255,255);
+  pdf.setFontSize(11); pdf.setFont('helvetica','bold');
+  pdf.text(doc.tipo + ' N° ' + doc.numero, 105, 42, {align:'center'});
+  let y = 60;
+  pdf.setTextColor(0,0,0);
+  pdf.setFontSize(10); pdf.setTextColor(120,120,120); pdf.text('CLIENTE', 15, y);
+  pdf.setTextColor(0,0,0); pdf.setFont('helvetica','bold'); pdf.setFontSize(18);
+  pdf.text(String(doc.cliente), 15, y+8);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.setTextColor(120,120,120);
+  pdf.text(String(doc.fecha), 195, y, {align:'right'});
+  y += 18;
+  pdf.setDrawColor(200,200,200); pdf.line(15,y,195,y); y+=8;
+  pdf.setTextColor(120,120,120); pdf.setFontSize(10); pdf.setFont('helvetica','bold');
+  pdf.text('TRABAJO', 15, y); pdf.text('PRECIO', 195, y, {align:'right'}); y+=4;
+  pdf.line(15,y,195,y); y+=8;
+  pdf.setTextColor(0,0,0); pdf.setFont('helvetica','normal'); pdf.setFontSize(12);
+  doc.items.forEach(item=>{
+    pdf.text(String(item.t).substring(0,45), 15, y);
+    pdf.setFont('helvetica','bold'); pdf.text('$'+fmt(item.p), 195, y, {align:'right'}); pdf.setFont('helvetica','normal');
+    y+=8;
+    if(y>250){ pdf.addPage(); y=20; }
+  });
+  y+=4; pdf.line(15,y,195,y); y+=8;
+  pdf.setFontSize(12);
+  pdf.text('Subtotal', 15, y); pdf.text('$'+fmt(sub), 195, y, {align:'right'}); y+=8;
+  pdf.text('Impuesto ('+impPct+'%)', 15, y); pdf.text('$'+fmt(impMonto), 195, y, {align:'right'}); y+=8;
+  pdf.text('Abono', 15, y); pdf.text('$'+fmt(abono), 195, y, {align:'right'}); y+=8;
+  pdf.setTextColor(220,38,38); pdf.setFont('helvetica','bold');
+  pdf.text('Falta pagar', 15, y); pdf.text('$'+fmt(saldo), 195, y, {align:'right'}); y+=12;
+  pdf.setFillColor(240,253,250); pdf.roundedRect(15, y, 180, 18, 3, 3, 'F');
+  pdf.setTextColor(0,0,0); pdf.setFontSize(14);
+  pdf.text('Total a pagar', 20, y+11);
+  pdf.setFontSize(18); pdf.text('$'+fmt(doc.total), 190, y+12, {align:'right'});
+  y+=28;
+  if(saldo <= 0){
+    pdf.setFillColor(220,252,231); pdf.roundedRect(15,y,180,12,3,3,'F');
+    pdf.setTextColor(22,101,52); pdf.setFontSize(12); pdf.setFont('helvetica','bold');
+    pdf.text('PAGADO COMPLETO', 105, y+8, {align:'center'});
+    y+=18;
+  } else if(abono > 0){
+    pdf.setFillColor(254,249,195); pdf.roundedRect(15,y,180,12,3,3,'F');
+    pdf.setTextColor(133,77,14); pdf.setFontSize(12); pdf.setFont('helvetica','bold');
+    pdf.text('ABONO $'+fmt(abono)+' - FALTA $'+fmt(saldo), 105, y+8, {align:'center'});
+    y+=18;
+  }
+  pdf.setTextColor(140,140,140); pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+  pdf.text('Gracias por confiar en Nitrox Technology - Ismael S', 105, y+5, {align:'center'});
+  pdf.text('Tel: '+tel, 105, y+11, {align:'center'});
+  return pdf;
+}
+async function descargarPDF(i){
+  try{
+    let doc = historial[i];
+    let pdf = await crearPDF(doc);
+    let nombre = doc.tipo + '-N' + doc.numero + '-' + doc.cliente + '.pdf';
+    pdf.save(nombre);
+  }catch(e){ alert('Error PDF: '+e.message); console.log(e); }
+}
+async function compartirPDF(i){
+  try{
+    let doc = historial[i];
+    let pdf = await crearPDF(doc);
+    let nombre = doc.tipo + '-N' + doc.numero + '-' + doc.cliente + '.pdf';
+    let blob = pdf.output('blob');
+    let file = new File([blob], nombre, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:nombre, text:'Te mando tu ' + doc.tipo + ' de NITROX TECHNOLOGY'});
+    } else {
+      let a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre; a.click();
+      alert('Se descargó el PDF. Ahora en WhatsApp tocá Clip > Documento y mandá ese PDF.');
+    }
+  }catch(e){ descargarPDF(i); }
+}
+function armarTextoWsp(doc){
+  let tel = localStorage.getItem('miTel') || '';
+  let texto = '🧾 *NITROX TECHNOLOGY* - '+doc.tipo+' N° '+doc.numero+'\n📅 '+doc.fecha+'\n👤 Cliente: '+doc.cliente+'\n----------------\n';
+  doc.items.forEach(item => { texto += '• '+item.t+' - $'+fmt(item.p)+'\n'; });
+  texto += '----------------\nSubtotal: $'+fmt(doc.subtotal||doc.total)+'\nImpuesto ('+(doc.impPct||0)+'%): $'+fmt(doc.impMonto||0)+'\n💰 *Total: $'+fmt(doc.total)+'*\n💵 Abonó: $'+fmt(doc.abono||0)+'\n📌 Falta: $'+fmt(doc.saldo!=null?doc.saldo:doc.total)+'\n\nGracias por confiar en Nitrox Technology!\n📞 Tel: '+tel;
+  return encodeURIComponent(texto);
+}
+function enviarWsp(i){ window.open('https://wa.me/?text=' + armarTextoWsp(historial[i]), '_blank'); }
+function registrarAbono(i){
+  let doc = historial[i];
+  let falta = doc.total - (doc.abono || 0);
+  if(falta <= 0) return alert('Esta ya está pagada completa ✅');
+  let monto = prompt('¿Cuánto te abonó ' + doc.cliente + '?\nFaltan $' + fmt(falta), '');
+  if(!monto) return;
+  monto = Number(monto);
+  if(!monto || monto <= 0) return alert('Poné un monto válido');
+  doc.abono = (doc.abono || 0) + monto;
+  doc.saldo = doc.total - doc.abono;
+  if(doc.saldo < 0) doc.saldo = 0;
+  localStorage.setItem('historial', JSON.stringify(historial));
+  mostrarHistorial();
+  alert('Abono registrado ✅\nPagó: $' + fmt(doc.abono) + '\nFalta: $' + fmt(doc.saldo));
+}
+function guardarDocumento(){
+  let cliente = document.getElementById('c').value;
+  if(!cliente || itemsActuales.length === 0) return alert('Pone cliente y al menos un trabajo');
+  let hoy = new Date().toLocaleDateString('es-AR');
+  let impPct = Number(document.getElementById('imp').value) || 0;
+  let c = calcTotales(itemsActuales, impPct);
+  let tipo = document.getElementById('tipo').value;
+  let abonoInicial = Number(document.getElementById('abono').value) || 0;
+  if(editIndex >= 0){
+    let numeroViejo = historial[editIndex].numero;
+    let doc = {tipo: tipo, cliente: cliente, fecha: hoy, items: itemsActuales, total: c.tot, subtotal: c.sub, impPct: impPct, impMonto: c.impMonto, numero: numeroViejo, abono: abonoInicial, saldo: c.tot - abonoInicial};
+    historial[editIndex] = doc;
+    localStorage.setItem('historial', JSON.stringify(historial));
+    editIndex = -1;
+    document.getElementById('btnGuardar').innerText = 'Guardar e Imprimir';
+    cancelar(); mostrarHistorial();
+    alert('✅ Factura reeditada y guardada con el mismo número N° ' + numeroViejo);
+    return;
+  }
+  let numero = historial.length + 1;
+  let doc = {tipo: tipo, cliente: cliente, fecha: hoy, items: itemsActuales, total: c.tot, subtotal: c.sub, impPct: impPct, impMonto: c.impMonto, numero: numero, abono: abonoInicial, saldo: c.tot - abonoInicial};
+  historial.push(doc);
+  localStorage.setItem('historial', JSON.stringify(historial));
+  cancelar();
+  mostrarHistorial();
+  alert('✅ Guardado. Ahora tocá Descargar PDF.');
+}
+function cancelar(){
+  itemsActuales = [];
+  editIndex = -1;
+  document.getElementById('btnGuardar').innerText = 'Guardar e Imprimir';
+  document.getElementById('c').value = '';
+  document.getElementById('t').value = '';
+  document.getElementById('p').value = '';
+  document.getElementById('abono').value = '';
+  document.getElementById('imp').value = '0';
+  mostrarActual();
+}
+function mostrarHistorial(){
+  let html = '';
+  historial.forEach((doc, i) => {
+    let abono = doc.abono || 0;
+    let saldo = doc.saldo != null ? doc.saldo : doc.total;
+    let estado = saldo <= 0 ? '<span style="background:#22c55e;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold">✅ PAGADO</span>' : (abono > 0 ? '<span style="background:#f59e0b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold">💰 ABONÓ $'+fmt(abono)+' - FALTA $'+fmt(saldo)+'</span>' : '<span style="background:#ef4444;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold">⏳ PENDIENTE $'+fmt(saldo)+'</span>');
+    html += '<div class="doc"><span class="badge badge-'+doc.tipo+'">'+doc.tipo+' N° '+doc.numero+'</span> <b>'+doc.cliente+'</b> <span style="color:#888">'+doc.fecha+'</span><button class="btn btn-small" onclick="reeditar('+i+')">✏️ Reeditar</button><br><br>';
+    html += estado + '<br><br>';
+    doc.items.forEach(item => { html += '- '+item.t+' - $'+fmt(item.p)+'<br>'; });
+    html += '<br>Subtotal: $'+fmt(doc.subtotal||doc.total)+'<br>Impuesto ('+(doc.impPct||0)+'%): $'+fmt(doc.impMonto||0)+'<br><b>Total: $'+fmt(doc.total)+'</b><br><b>Abonó: $'+fmt(abono)+'</b><br><b>Falta: $'+fmt(saldo)+'</b><br><br><button class="btn btn-wsp" onclick="compartirPDF('+i+')">📄 Compartir PDF por WhatsApp</button><button class="btn btn-blue" onclick="descargarPDF('+i+')">⬇️ Descargar PDF</button><button class="btn btn-save" onclick="registrarAbono('+i+')">💰 Registrar Abono</button><button class="btn btn-danger" onclick="borrarDoc('+i+')">Borrar documento</button></div>';
+  });
+  document.getElementById('lista').innerHTML = html;
+}
+function borrarDoc(i){ if(!confirm('¿Borrar este documento?')) return; historial.splice(i,1); localStorage.setItem('historial', JSON.stringify(historial)); mostrarHistorial(); }
+function borrarTodo(){ if(!confirm('¿Borrar todo?')) return; historial = []; localStorage.setItem('historial', JSON.stringify(historial)); mostrarHistorial(); }
+mostrarActual();
+mostrarHistorial();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js'); }
+</script>
+</body>
+</html>
